@@ -1,0 +1,875 @@
+<template>
+  <div class="form-generator">
+    <div v-if="loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2">Loading form...</p>
+    </div>
+
+    <div v-else-if="formSubmitted" class="container my-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+            <h3 class="mt-2">Form Submitted Successfully!</h3>
+            <p class="text-muted">Thank you for your submission.</p>
+            <p v-if="storedSubmissions.length > 0" class="mt-3 fw-bold">
+              You have {{ storedSubmissions.length }} submission{{ storedSubmissions.length !== 1 ? 's' : '' }} stored
+            </p>
+          </div>
+
+          <div class="d-flex justify-content-center mb-4">
+            <div class="form-check form-switch mx-2">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="viewAllSubmissions" 
+                v-model="viewAllSubmissions"
+              >
+              <label class="form-check-label" for="viewAllSubmissions">
+                View all submissions
+              </label>
+            </div>
+          </div>
+
+          <div v-if="viewAllSubmissions && storedSubmissions.length > 0" class="mb-4">
+            <h4 class="mb-3">All Submissions</h4>
+            <div class="table-responsive">
+              <table class="table table-striped table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Timestamp</th>
+                    <th v-for="(question, qIndex) in questions" :key="qIndex">
+                      {{ question.label }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(submission, sIndex) in storedSubmissions" :key="sIndex">
+                    <td>{{ sIndex + 1 }}</td>
+                    <td>{{ formatDate(submission.timestamp) }}</td>
+                    <td v-for="(question, qIndex) in questions" :key="qIndex">
+                      {{ formatAnswer(submission.answers[question.id]) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div v-else class="mb-4">
+            <h4 class="mb-3">Your Submission</h4>
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead class="table-light">
+                  <tr>
+                    <th>Question</th>
+                    <th>Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(question, index) in questions" :key="index">
+                    <td>{{ question.label }}</td>
+                    <td>{{ formatAnswer(formData[question.id]) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="export-section my-4">
+            <h4 class="mb-3">Export Options</h4>
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+              <button 
+                @click="exportToPDF" 
+                class="btn btn-outline-danger" 
+                title="Export to PDF"
+              >
+                <i class="bi bi-file-earmark-pdf me-2"></i>Export to PDF
+              </button>
+              <button 
+                @click="exportToExcel" 
+                class="btn btn-outline-success" 
+                title="Export to Excel"
+              >
+                <i class="bi bi-file-earmark-excel me-2"></i>Export to Excel
+              </button>
+              <button 
+                @click="exportToCSV" 
+                class="btn btn-outline-primary" 
+                title="Export to CSV"
+              >
+                <i class="bi bi-file-earmark-text me-2"></i>Export to CSV
+              </button>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap justify-content-center gap-3 my-4">
+            <button 
+              @click="resetForm" 
+              class="btn btn-primary"
+            >
+              <i class="bi bi-plus-circle me-2"></i>Submit Another Response
+            </button>
+            <button 
+              @click="clearAllSubmissions" 
+              class="btn btn-outline-secondary"
+              :disabled="storedSubmissions.length === 0"
+            >
+              <i class="bi bi-trash me-2"></i>Clear All Submissions
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="container my-4">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h3 class="mb-0">{{ formTitle }}</h3>
+        </div>
+        <div class="card-body">
+          <p class="card-text" v-if="formDescription">{{ formDescription }}</p>
+          
+          <form @submit.prevent="submitForm">
+            <div v-for="(question, index) in questions" :key="index" class="mb-4">
+              <div class="form-group">
+                <label :for="'question-' + question.id" class="form-label fw-bold">
+                  {{ question.label }}
+                  <span v-if="question.required" class="text-danger">*</span>
+                </label>
+                
+                <!-- Text Input -->
+                <input 
+                  v-if="question.type === 'text'" 
+                  :id="'question-' + question.id"
+                  v-model="formData[question.id]"
+                  type="text" 
+                  class="form-control" 
+                  :required="question.required"
+                  :placeholder="question.placeholder || ''"
+                />
+                
+                <!-- Textarea -->
+                <textarea 
+                  v-else-if="question.type === 'textarea'" 
+                  :id="'question-' + question.id"
+                  v-model="formData[question.id]"
+                  class="form-control" 
+                  :required="question.required"
+                  :placeholder="question.placeholder || ''"
+                  rows="3"
+                ></textarea>
+                
+                <!-- Number Input -->
+                <input 
+                  v-else-if="question.type === 'number'" 
+                  :id="'question-' + question.id"
+                  v-model.number="formData[question.id]"
+                  type="number" 
+                  class="form-control" 
+                  :required="question.required"
+                  :min="question.min"
+                  :max="question.max"
+                  :step="question.step || 1"
+                  :placeholder="question.placeholder || ''"
+                />
+                
+                <!-- Email Input -->
+                <input 
+                  v-else-if="question.type === 'email'" 
+                  :id="'question-' + question.id"
+                  v-model="formData[question.id]"
+                  type="email" 
+                  class="form-control" 
+                  :required="question.required"
+                  :placeholder="question.placeholder || 'example@domain.com'"
+                />
+                
+                <!-- Date Input -->
+                <input 
+                  v-else-if="question.type === 'date'" 
+                  :id="'question-' + question.id"
+                  v-model="formData[question.id]"
+                  type="date" 
+                  class="form-control" 
+                  :required="question.required"
+                />
+                
+                <!-- Select Dropdown -->
+                <select 
+                  v-else-if="question.type === 'select'" 
+                  :id="'question-' + question.id"
+                  v-model="formData[question.id]"
+                  class="form-select" 
+                  :required="question.required"
+                >
+                  <option value="" disabled selected>Select an option</option>
+                  <option 
+                    v-for="(option, optIndex) in question.options" 
+                    :key="optIndex" 
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+                
+                <!-- Radio Buttons -->
+                <div v-else-if="question.type === 'radio'" class="mt-2">
+                  <div 
+                    v-for="(option, optIndex) in question.options" 
+                    :key="optIndex" 
+                    class="form-check"
+                  >
+                    <input 
+                      :id="'question-' + question.id + '-' + optIndex"
+                      v-model="formData[question.id]"
+                      class="form-check-input" 
+                      type="radio" 
+                      :name="'question-' + question.id"
+                      :value="option.value"
+                      :required="question.required"
+                    />
+                    <label 
+                      :for="'question-' + question.id + '-' + optIndex" 
+                      class="form-check-label"
+                    >
+                      {{ option.label }}
+                    </label>
+                  </div>
+                </div>
+                
+                <!-- Checkboxes -->
+                <div v-else-if="question.type === 'checkbox'" class="mt-2">
+                  <div 
+                    v-for="(option, optIndex) in question.options" 
+                    :key="optIndex" 
+                    class="form-check"
+                  >
+                    <input 
+                      :id="'question-' + question.id + '-' + optIndex"
+                      v-model="formData[question.id]"
+                      class="form-check-input" 
+                      type="checkbox" 
+                      :value="option.value"
+                    />
+                    <label 
+                      :for="'question-' + question.id + '-' + optIndex" 
+                      class="form-check-label"
+                    >
+                      {{ option.label }}
+                    </label>
+                  </div>
+                </div>
+                
+                <small v-if="question.helpText" class="form-text text-muted">
+                  {{ question.helpText }}
+                </small>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-primary btn-lg">
+                Submit
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+import { ref, reactive, onMounted, computed } from 'vue';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+
+export default {
+  name: 'FormGenerator',
+  props: {
+    formId: {
+      type: String,
+      required: true
+    }
+  },
+  setup(props) {
+    const formTitle = ref('Dynamic Form');
+    const formDescription = ref('');
+    const questions = ref([]);
+    const formData = reactive({});
+    const formSubmitted = ref(false);
+    const loading = ref(true);
+    const storedSubmissions = ref([]);
+    const viewAllSubmissions = ref(false);
+
+    // Load form questions from API or local storage
+    const loadForm = async () => {
+      loading.value = true;
+      
+      try {
+        // For demonstration purposes, we're loading from localStorage
+        // In a real app, this would be an API call
+        const savedForm = localStorage.getItem(`form_${props.formId}`);
+        
+        if (savedForm) {
+          const parsedForm = JSON.parse(savedForm);
+          formTitle.value = parsedForm.title || 'Dynamic Form';
+          formDescription.value = parsedForm.description || '';
+          questions.value = parsedForm.questions || [];
+          
+          // Initialize form data with empty values or defaults
+          questions.value.forEach(question => {
+            if (question.type === 'checkbox') {
+              formData[question.id] = [];
+            } else {
+              formData[question.id] = '';
+            }
+          });
+        } else {
+          console.error('Form not found');
+        }
+      } catch (error) {
+        console.error('Error loading form:', error);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    const submitForm = () => {
+      // Store the current submission
+      const currentSubmission = {
+        timestamp: new Date(),
+        answers: { ...formData }
+      };
+      
+      // Add to stored submissions array
+      storedSubmissions.value.push(currentSubmission);
+      
+      // Set form as submitted
+      formSubmitted.value = true;
+    };
+
+    const resetForm = () => {
+      // Reset form data but keep stored submissions
+      questions.value.forEach(question => {
+        if (question.type === 'checkbox') {
+          formData[question.id] = [];
+        } else {
+          formData[question.id] = '';
+        }
+      });
+      
+      // Reset submission state
+      formSubmitted.value = false;
+    };
+
+    const clearAllSubmissions = () => {
+      storedSubmissions.value = [];
+    };
+
+    const formatDate = (date) => {
+      if (!date) return '';
+      
+      const d = new Date(date);
+      return d.toLocaleString();
+    };
+
+    const formatAnswer = (answer) => {
+      if (answer === null || answer === undefined) return '-';
+      
+      if (Array.isArray(answer)) {
+        return answer.join(', ');
+      }
+      
+      return String(answer);
+    };
+
+    // Utility function to format data for export
+    const formatDataForExport = () => {
+      if (storedSubmissions.value.length === 0) {
+        // If no stored submissions, use the current form data
+        const result = [];
+        questions.value.forEach(question => {
+          result.push({
+            question: question.label,
+            answer: formatAnswer(formData[question.id])
+          });
+        });
+        return { multiple: false, data: result };
+      } else {
+        // Format all stored submissions
+        const headers = ['Submission #', 'Timestamp'];
+        const rows = [];
+        
+        // Add all questions to headers
+        questions.value.forEach(question => {
+          headers.push(question.label);
+        });
+        
+        // Add each submission as a row
+        storedSubmissions.value.forEach((submission, index) => {
+          const row = [
+            index + 1,
+            formatDate(submission.timestamp)
+          ];
+          
+          // Add answers in the same order as questions
+          questions.value.forEach(question => {
+            row.push(formatAnswer(submission.answers[question.id]));
+          });
+          
+          rows.push(row);
+        });
+        
+        return { multiple: true
+
+<template>
+    <div class="form-generator">
+      <div v-if="questions.length === 0" class="text-center p-5 border rounded bg-light">
+        <div class="mb-3 text-muted">
+          <i class="bi bi-exclamation-circle" style="font-size: 2rem;"></i>
+        </div>
+        <h3 class="h5">No Form Questions Available</h3>
+        <p>Please visit the Design Form page to create your form.</p>
+        <router-link to="/admin" class="btn btn-primary">
+          <i class="bi bi-gear me-1"></i> Design Form
+        </router-link>
+      </div>
+  
+      <form v-else @submit.prevent="submitForm" class="needs-validation" novalidate>
+        <div v-if="formState === 'start'" class="mb-4">
+          <p class="text-muted">This form contains {{ requiredCount }} required questions 
+             out of {{ questions.length }} total questions.</p>
+          <div class="form-progress mb-3">
+            <div class="progress" style="height: 4px;">
+              <div class="progress-bar" role="progressbar" :style="{width: progressPercentage}" 
+                   :aria-valuenow="answeredCount" aria-valuemin="0" :aria-valuemax="questions.length"></div>
+            </div>
+            <small class="text-muted">{{ answeredCount }} of {{ questions.length }} questions answered</small>
+          </div>
+        </div>
+  
+        <div v-for="(question, index) in questions" :key="question.id" class="mb-4 p-3 border rounded bg-white shadow-sm">
+          <form-question 
+            :question="question" 
+            v-model="formData[question.id]"
+            @update:modelValue="checkQuestionAnswered(question.id, $event)"
+          />
+          <div v-if="validationErrors[question.id]" class="invalid-feedback d-block mt-2">
+            {{ validationErrors[question.id] }}
+          </div>
+        </div>
+  
+        <div class="d-grid gap-2 col-lg-6 mx-auto mt-4">
+          <button 
+            type="submit" 
+            class="btn btn-lg btn-primary" 
+            :disabled="submitting"
+          >
+            <span v-if="submitting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            {{ submitting ? 'Submitting...' : 'Submit Form' }}
+          </button>
+        </div>
+  
+        <!-- Success state -->
+        <!-- Success state -->
+        <div v-if="formState === 'success'" class="mt-4 p-4 bg-success bg-opacity-10 border border-success rounded">
+          <div class="d-flex">
+            <div class="me-3">
+              <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+            </div>
+            <div>
+              <h3 class="h5 text-success">Form Submitted Successfully</h3>
+              <p>Thank you for your submission. Your responses have been recorded.</p>
+              <p class="text-muted small">
+                <i class="bi bi-info-circle-fill me-1"></i>
+                You have {{ savedSubmissions.length }} {{ savedSubmissions.length === 1 ? 'submission' : 'submissions' }} stored.
+              </p>
+              <button @click="resetForm" class="btn btn-outline-success me-2">Submit Another Response</button>
+              <button @click="showData = !showData" class="btn btn-outline-secondary">
+                {{ showData ? 'Hide' : 'View' }} Form Data
+              </button>
+            </div>
+          </div>
+          
+          <div v-if="showData" class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Current Submission</h5>
+              <div>
+                <button v-if="savedSubmissions.length > 1" @click="showAllSubmissions = !showAllSubmissions" class="btn btn-sm btn-outline-secondary">
+                  {{ showAllSubmissions ? 'Show Current Only' : 'Show All Submissions' }}
+                </button>
+              </div>
+            </div>
+            
+            <div v-if="!showAllSubmissions">
+              <pre class="bg-light p-3 rounded">{{ JSON.stringify(formData, null, 2) }}</pre>
+            </div>
+            
+            <div v-else>
+              <div v-for="(submission, index) in savedSubmissions" :key="index" class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">Submission #{{ index + 1 }}</h6>
+                  <span class="badge bg-secondary">{{ formatDate(submission.timestamp) }}</span>
+                </div>
+                <pre class="bg-light p-3 rounded">{{ JSON.stringify(submission.data, null, 2) }}</pre>
+              </div>
+            </div>
+          </div>
+          <!-- Export options section -->
+          <div class="export-options mt-4">
+            <h4 class="h6 mb-3">Export Your Responses</h4>
+            <p class="text-muted small mb-3">
+              Download {{ savedSubmissions.length > 1 ? 'all' : 'your' }} form 
+              {{ savedSubmissions.length > 1 ? 'responses' : 'response' }} in your preferred format:
+            </p>
+            <div class="d-flex flex-wrap gap-2">
+              <button @click="exportToPDF" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Export as PDF
+              </button>
+              <button @click="exportToExcel" class="btn btn-sm btn-outline-success">
+                <i class="bi bi-file-earmark-excel me-1"></i> Export as XLSX
+              </button>
+              <button @click="exportToCSV" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-file-earmark-text me-1"></i> Export as CSV
+              </button>
+            </div>
+            
+            <div class="text-end mt-3" v-if="savedSubmissions.length > 0">
+              <button @click="clearAllSubmissions" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-trash me-1"></i> Clear All Submissions
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </template>
+  
+<script>
+import FormQuestion from './FormQuestion.vue'
+import { saveAs } from 'file-saver'
+import * as XLSX from 'xlsx'
+import { exportToPDF } from '../exportToPDF'
+
+// PDF export error debugging flag - set to true to see detailed logs
+const DEBUG_PDF_EXPORT = true;
+export default {
+    name: 'FormGenerator',
+    components: {
+      FormQuestion
+    },
+    props: {
+      questions: {
+        type: Array,
+        required: true
+      }
+    },
+    data() {
+      return {
+        formData: {},
+        answeredQuestions: new Set(),
+        validationErrors: {},
+        formState: 'start', // 'start', 'success'
+        submitting: false,
+        showData: false,
+        savedSubmissions: [],
+        showAllSubmissions: false
+      }
+    },
+    computed: {
+      requiredCount() {
+        return this.questions.filter(q => q.required).length
+      },
+      answeredCount() {
+        return this.answeredQuestions.size
+      },
+      progressPercentage() {
+        if (this.questions.length === 0) return '0%'
+        return `${(this.answeredCount / this.questions.length) * 100}%`
+      }
+    },
+    watch: {
+      questions: {
+        handler(newVal) {
+          // Initialize form data for new questions
+          newVal.forEach(question => {
+            if (!this.formData[question.id]) {
+              if (question.type === 'checkbox') {
+                this.formData[question.id] = []
+              } else {
+                this.formData[question.id] = ''
+              }
+            }
+          })
+        },
+        immediate: true
+      }
+    },
+    methods: {
+      checkQuestionAnswered(questionId, value) {
+        // Check if the question has been answered meaningfully
+        if (Array.isArray(value)) {
+          if (value.length > 0) {
+            this.answeredQuestions.add(questionId)
+          } else {
+            this.answeredQuestions.delete(questionId)
+          }
+        } else {
+          if (value && value.trim() !== '') {
+            this.answeredQuestions.add(questionId)
+          } else {
+            this.answeredQuestions.delete(questionId)
+          }
+        }
+        
+        // Clear validation error when user starts typing
+        if (this.validationErrors[questionId]) {
+          this.$set(this.validationErrors, questionId, null)
+        }
+      },
+      validateForm() {
+        this.validationErrors = {}
+        let isValid = true
+        
+        this.questions.forEach(question => {
+          if (question.required) {
+            const value = this.formData[question.id]
+            
+            if (Array.isArray(value)) {
+              if (value.length === 0) {
+                this.validationErrors[question.id] = 'Please select at least one option'
+                isValid = false
+              }
+            } else if (!value || value.trim() === '') {
+              this.validationErrors[question.id] = `This field is required`
+              isValid = false
+            }
+          }
+        })
+        
+        return isValid
+      },
+      submitForm() {
+        if (this.submitting) return
+        
+        if (!this.validateForm()) {
+          // Scroll to the first error
+          const firstErrorId = Object.keys(this.validationErrors)[0]
+          const errorElement = document.querySelector(`[data-question-id="${firstErrorId}"]`)
+          if (errorElement) {
+            errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+          return
+        }
+        
+        this.submitting = true
+        
+        // Simulate form submission with a delay
+        setTimeout(() => {
+          console.log('Form submitted with data:', this.formData)
+          
+          // Add the current submission to the saved submissions array
+          this.savedSubmissions.push({
+            data: JSON.parse(JSON.stringify(this.formData)),
+            timestamp: new Date()
+          })
+          
+          this.formState = 'success'
+          this.submitting = false
+        }, 1500)
+      },
+      resetForm() {
+        this.formData = {}
+        this.answeredQuestions = new Set()
+        this.validationErrors = {}
+        this.formState = 'start'
+        this.showData = false
+        this.showAllSubmissions = false
+        
+        // Initialize form data
+        this.questions.forEach(question => {
+          if (question.type === 'checkbox') {
+            this.formData[question.id] = []
+          } else {
+            this.formData[question.id] = ''
+          }
+        })
+      },
+      formatDate(date) {
+        return new Date(date).toLocaleString();
+      },
+      clearAllSubmissions() {
+        if (confirm('Are you sure you want to clear all saved submissions?')) {
+          this.savedSubmissions = [];
+          this.showAllSubmissions = false;
+        }
+      },
+      formatFormDataForExport() {
+        // Check if we have multiple submissions
+        if (this.savedSubmissions.length <= 1) {
+          // If only one submission, maintain the original format
+          const formattedData = [];
+          
+          // Use the latest submission or current form data
+          const dataToFormat = this.savedSubmissions.length === 1 
+                              ? this.savedSubmissions[0].data 
+                              : this.formData;
+          
+          // Create a row for each question with its answer
+          this.questions.forEach(question => {
+            const answer = dataToFormat[question.id];
+            let formattedAnswer = '';
+            
+            // Format the answer based on the question type
+            if (Array.isArray(answer)) {
+              formattedAnswer = answer.join(', ');
+            } else {
+              formattedAnswer = answer || '';
+            }
+            
+            formattedData.push({
+              Question: question.label,
+              Answer: formattedAnswer
+            });
+          });
+          
+          return formattedData;
+        } else {
+          // For multiple submissions, create a different format with each submission as a row
+          const formattedData = [];
+          
+          // Create rows for each submission
+          this.savedSubmissions.forEach((submission, submissionIndex) => {
+            const row = {
+              'Submission #': submissionIndex + 1,
+              'Timestamp': this.formatDate(submission.timestamp)
+            };
+            
+            // Add each question's answer to the row
+            this.questions.forEach(question => {
+              const answer = submission.data[question.id];
+              let formattedAnswer = '';
+              
+              if (Array.isArray(answer)) {
+                formattedAnswer = answer.join(', ');
+              } else {
+                formattedAnswer = answer || '';
+              }
+              
+              row[question.label] = formattedAnswer;
+            });
+            
+            formattedData.push(row);
+          });
+          
+          return formattedData;
+        }
+      },
+      exportToPDF() {
+        // Call the exported function with necessary data
+        try {
+          return exportToPDF(
+            this.questions,
+            this.savedSubmissions,
+            this.formData,
+            this.formatDate
+          );
+        } catch (error) {
+          console.error('Error in exportToPDF:', error);
+          alert('Failed to export PDF. Please check console for details.');
+          return false;
+        }
+      },
+      exportToExcel() {
+        const formattedData = this.formatFormDataForExport();
+        
+        // Create worksheet from data
+        const worksheet = XLSX.utils.json_to_sheet(formattedData);
+        
+        // Create workbook and add the worksheet
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Form Responses');
+        
+        // Generate Excel file and save
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(data, `form-submission-${new Date().toISOString().slice(0, 10)}.xlsx`);
+      },
+      exportToCSV() {
+        const formattedData = this.formatFormDataForExport();
+        let csvContent = '';
+        
+        if (this.savedSubmissions.length <= 1) {
+          // Single submission format
+          csvContent = "Question,Answer\n";
+          
+          // Add each row to the CSV content
+          formattedData.forEach(item => {
+            // Escape quotes and handle commas
+            const escapedQuestion = `"${item.Question.replace(/"/g, '""')}"`;
+            const escapedAnswer = `"${item.Answer.toString().replace(/"/g, '""')}"`;
+            csvContent += `${escapedQuestion},${escapedAnswer}\n`;
+          });
+        } else {
+          // Multiple submissions format
+          // Create header row with dynamic columns
+          const headers = ['Submission #', 'Timestamp'];
+          this.questions.forEach(question => {
+            headers.push(question.label);
+          });
+          
+          // Escape header values and join with commas
+          const headerRow = headers.map(header => `"${header.replace(/"/g, '""')}"`).join(',');
+          csvContent = headerRow + '\n';
+          
+          // Add data rows
+          formattedData.forEach(item => {
+            const rowValues = [
+              `"${item['Submission #']}"`, 
+              `"${item['Timestamp'].replace(/"/g, '""')}"`
+            ];
+            
+            // Add each question's answer to the row
+            this.questions.forEach(question => {
+              const value = item[question.label] || '';
+              rowValues.push(`"${value.toString().replace(/"/g, '""')}"`);
+            });
+            // Add each question's answer to the row
+            this.questions.forEach(question => {
+              const value = item[question.label] || '';
+              rowValues.push(`"${value.toString().replace(/"/g, '""')}"`);
+            });
+            
+            // Add the completed row to the CSV content
+            csvContent += rowValues.join(',') + '\n';
+            
+            // Create a Blob from the CSV content
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            saveAs(blob, `form-submission-${new Date().toISOString().slice(0, 10)}.csv`);
+          }
+        }
+      }
+    }
+  }
+  <style scoped>
+  .form-progress {
+    margin: 2rem 0;
+  }
+  
+  .form-progress .progress-bar {
+    transition: width 0.5s ease-in-out;
+    background-color: #28a745;
+  }
+
+  .export-options {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 15px;
+    margin-top: 15px;
+  }
+  </style>
