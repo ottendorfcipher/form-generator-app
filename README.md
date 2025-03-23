@@ -2,8 +2,6 @@
 
 A powerful, cross-platform desktop application built with Electron and Vue.js that allows users to create, manage, and export custom forms with various input types. Designed for businesses and organizations that need a flexible, offline-capable form creation solution.
 
-![Form Generator App Screenshot](https://via.placeholder.com/800x400?text=Form+Generator+App)
-
 ## Overview
 
 Form Generator App simplifies the process of creating custom forms, collecting responses, and exporting data. Whether you're conducting surveys, creating application forms, or gathering customer feedback, this desktop application provides a complete solution that works even without an internet connection.
