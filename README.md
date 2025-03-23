@@ -139,7 +139,6 @@ After running the build command, you'll find platform-specific installers in the
 The app supports exporting form data in multiple formats:
 
 - **Excel (.xlsx)**: Perfect for data analysis and reporting
-- **PDF (.pdf)**: Ideal for sharing and archiving completed forms
 - **JSON (.json)**: For data interchange and backup
 
 To export:
@@ -199,14 +198,6 @@ Please make sure your code follows the existing style and includes appropriate t
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Vue.js](https://vuejs.org/) - The progressive JavaScript framework
-- [Electron](https://www.electronjs.org/) - Build cross-platform desktop apps
-- [jsPDF](https://github.com/MrRio/jsPDF) - Client-side JavaScript PDF generation
-- [SheetJS](https://sheetjs.com/) - Excel spreadsheet manipulation library
-- [Vuetify](https://vuetifyjs.com/) - Material Design component framework
 
 ## Support
 
