@@ -165,38 +165,7 @@ To export:
 └── package.json             # Project dependencies and scripts
 ```
 
-## Contributing
 
-Contributions are welcome and appreciated! Here's how you can contribute:
+## Attribution
 
-1. **Fork the repository**
-2. **Create a feature branch**:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Commit your changes**:
-   ```bash
-   git commit -m 'Add some amazing feature'
-   ```
-4. **Push to the branch**:
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Open a Pull Request**
-
-Please make sure your code follows the existing style and includes appropriate tests.
-
-### Coding Standards
-
-- Follow the Vue.js style guide
-- Write meaningful commit messages
-- Update documentation for any new features
-- Add tests for new functionality
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-If you encounter any issues or have questions, please [open an issue](https://github.com/yourusername/form-generator-app/issues) on GitHub.
+Created with Claude
